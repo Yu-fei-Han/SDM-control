@@ -1,5 +1,7 @@
-
+sdm_unips/sdm_unips/logs
 sdm_unips/sdm_unips/results
 sdm_unips/DefaultTest
-sdm_unips/checkpoint/normal/nml.pytmodel
-sdm_unips/checkpoint/brdf/brdf.pytmodel
+sdm_unips/checkpoint/
+**/*.pyc
+*.pyc
+*.pyc
