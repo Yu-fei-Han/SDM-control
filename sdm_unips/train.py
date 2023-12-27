@@ -31,7 +31,9 @@ parser.add_argument('--canonical_resolution', type=int, default=256)
 parser.add_argument('--pixel_samples', type=int, default=10000)
 parser.add_argument('--scalable', default='False', action='store_true')
 
-
+# Training Configuration
+parser.add_argument('--train_epoch', type=int, default=1000)
+parser.add_argument('--fine_tune', default='True', action='store_true')
 def main():
     args = parser.parse_args()
     print(f'\nStarting a session: {args.session_name}')

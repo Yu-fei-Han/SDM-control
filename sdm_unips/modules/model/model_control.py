@@ -237,7 +237,6 @@ class Net(nn.Module):
         
 
         self.regressor = Regressor(384, num_enc_sab=1, use_efficient_attention=True, dim_feedforward=1024, output=self.target).to(self.device) 
-        self.no_grad()
 
     def no_grad(self):
         mode_change(self.image_encoder.backbone, False)
