@@ -8,7 +8,7 @@ Scalable, Detailed and Mask-free Universal Photometric Stereo Network (CVPR2023)
 import torch
 import torch.nn.functional as F
 import numpy as np
-from modules.model import model, decompose_tensors
+from modules.model import model_control, decompose_tensors
 from modules.model.model_utils import *
 from modules.utils import compute_mae
 import cv2
@@ -21,18 +21,17 @@ class builder():
         self.args = args       
         self.mseloss = torch.nn.MSELoss(reduction='sum')        
         """Load pretrained model (normal or brdf)"""
-        if 'normal' in args.target:
-            model_dir = f'{args.checkpoint}/normal'
-            self.net_nml = model.Net(args.pixel_samples, 'normal', device).to(self.device)
-            self.net_nml = torch.nn.DataParallel(self.net_nml)
-            self.net_nml = self.load_models(self.net_nml, model_dir)
-            self.net_nml.module.no_grad()
+        # if 'normal' in args.target:
+        #     model_dir = f'{args.checkpoint}/normal'
+        #     self.net_nml = model_control.Net(args.pixel_samples, 'normal', device).to(self.device)
+        #     self.net_nml = torch.nn.DataParallel(self.net_nml)
+        #     self.net_nml = self.load_models(self.net_nml, model_dir)
+        #     self.net_nml.module.no_grad()
         if 'brdf' in args.target:
             model_dir = f'{args.checkpoint}/brdf'
-            self.net_brdf = model.Net(args.pixel_samples, 'brdf', device).to(self.device)
+            self.net_brdf = model_control.Net(args.pixel_samples, 'brdf', device).to(self.device)
             self.net_brdf = torch.nn.DataParallel(self.net_brdf)
             self.net_brdf = self.load_models(self.net_brdf, model_dir)
-            self.net_brdf.module.no_grad()
         print('')
 
         print(f"canonical resolution: {self.args.canonical_resolution} x {self.args.canonical_resolution}  ")
@@ -87,7 +86,7 @@ class builder():
             #     del nout
             
             if 'brdf' in self.args.target:
-                nout, bout, rout, mout  = self.net_brdf(I, M, nImgArray.reshape(-1,1), decoder_resolution = data.data.h * torch.ones(I.shape[0],1), canonical_resolution=canonical_resolution* torch.ones(I.shape[0],1))
+                nout, bout, rout, mout  = self.net_brdf(I, M, L, nImgArray.reshape(-1,1), decoder_resolution = data.data.h * torch.ones(I.shape[0],1), canonical_resolution=canonical_resolution* torch.ones(I.shape[0],1))
                 nml = (nout * M).squeeze().permute(1,2,0)
                 base = (bout * M).squeeze().permute(1,2,0)
                 rough = (rout * M).squeeze()

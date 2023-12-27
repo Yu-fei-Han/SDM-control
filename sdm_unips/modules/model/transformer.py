@@ -148,7 +148,14 @@ class SAB(nn.Module):
         self.mab = MultiHeadSelfAttentionBlock(dim_in, dim_out, num_heads, ln=ln, attention_dropout = attention_dropout, dim_feedforward=dim_feedforward, attn_mode=attn_mode)
     def forward(self, X):
         return self.mab(X, X)
-
+    
+class CAB(nn.Module):
+    def __init__(self, dim_in, dim_out, num_heads=4, ln=False, attention_dropout = 0.1, dim_feedforward = 512, attn_mode = 'Normal'):
+        super(CAB, self).__init__()
+        self.mab = MultiHeadSelfAttentionBlock(dim_in, dim_out, num_heads, ln=ln, attention_dropout = attention_dropout, dim_feedforward=dim_feedforward, attn_mode=attn_mode)
+    def forward(self, X, Y):
+        return self.mab(X, Y)
+    
 class PMA(nn.Module):
     def __init__(self, dim, num_heads, num_seeds, ln=False, attn_mode='Normal'):
         super(PMA, self).__init__()

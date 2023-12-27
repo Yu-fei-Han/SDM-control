@@ -22,8 +22,8 @@ parser.add_argument('--max_image_res', type=int, default=512)
 parser.add_argument('--max_image_num', type=int, default=10)
 parser.add_argument('--train_ext', default='.data')
 parser.add_argument('--train_dir', default='DefaultTrain')
-parser.add_argument('--train_image_prefix', default='I*')
-parser.add_argument('--train_light_prefix', default='L*')
+parser.add_argument('--train_image_prefix', default='Directional*')
+parser.add_argument('--train_light_suffix', default='*dir.txt')
 parser.add_argument('--mask_margin', type=int, default=8)
 
 # Network Configuration

@@ -1,0 +1,4 @@
+color_texture = D:/Code/self_study/Blender/DiLiGenT_RT_proj_self\supp\BRDF\Stone-rock_001_bitmap\Stone-rock_001_bitmap_baseColor.tga
+metallic_texture = D:/Code/self_study/Blender/DiLiGenT_RT_proj_self\supp\BRDF\Stone-rock_001_bitmap\Stone-rock_001_bitmap_metallic.tga
+specular_texture = D:/Code/self_study/Blender/DiLiGenT_RT_proj_self\supp\BRDF\Stone-rock_001_bitmap\Stone-rock_001_bitmap_specular.tga
+roughness_texture = D:/Code/self_study/Blender/DiLiGenT_RT_proj_self\supp\BRDF\Stone-rock_001_bitmap\Stone-rock_001_bitmap_roughness.tga

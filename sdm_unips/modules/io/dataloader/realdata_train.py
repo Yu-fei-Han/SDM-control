@@ -29,7 +29,7 @@ class dataloader():
             os.makedirs(outdir, exist_ok=True)
             cv2.imwrite(f'{outdir}/tiled.png', (255 * img_tiled[:,:,::-1]).astype(np.uint8))
     
-    def load(self, objdir, image_prefix, light_prefix, margin = 0, max_image_resolution = 2048, aug=[]):
+    def load(self, objdir, image_prefix, light_suffix, margin = 0, max_image_resolution = 2048, aug=[]):
 
         self.objname = re.split(r'\\|/',objdir)[-1]
         self.data_workspace = f'{self.outdir}/results/{self.objname}'
@@ -43,7 +43,7 @@ class dataloader():
         directlist = sorted(directlist)
 
         light_list = []
-        [light_list.append(p) for p in glob.glob(objdir + '/%s[!.txt]' % light_prefix, recursive=True) if os.path.isfile(p)]
+        [light_list.append(p) for p in glob.glob(objdir + '/%s' % light_suffix, recursive=True) if os.path.isfile(p)]
         light_list = sorted(light_list)
 
         if len(directlist) == 0:
@@ -67,18 +67,19 @@ class dataloader():
             img = cv2.cvtColor(cv2.imread(img_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB)
 
             light_path = light_list[indexofimage]
-            light = cv2.cvtColor(cv2.imread(light_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB)
-            light = cv2.resize(light, dsize=(img.shape[1], img.shape[0]),interpolation=cv2.INTER_CUBIC)
-
+            # light = cv2.cvtColor(cv2.imread(light_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB)
+            # light = cv2.resize(light, dsize=(img.shape[1], img.shape[0]),interpolation=cv2.INTER_CUBIC)
+            light = np.loadtxt(light_path)
+            light = np.reshape(light, (1, 1, 3))
             if i == 0:
                 h0 = img.shape[0]
                 w0 = img.shape[1]
                 margin = self.mask_margin
                 
-                nml_path= img_dir + '/normal_gt.png'
-                BC_path = img_dir + '/basecolor_gt.png'
-                roughness_path = img_dir + '/roughness_gt.png'
-                metallic_path = img_dir + '/metallic_gt.png'
+                nml_path= img_dir + '/normal.tif'
+                BC_path = img_dir + '/basecolor.tif'
+                roughness_path = img_dir + '/roughness.tif'
+                metallic_path = img_dir + '/metal.tif'
 
                 # if ground truth normal map is avelable, generate normal-based mask               
                 mask_flag = False
@@ -104,7 +105,7 @@ class dataloader():
                     BC = np.float32(BC)/bit_depth
                 # if ground truth roughness map is avelable, generate roughness-based mask
                 if os.path.isfile(roughness_path):
-                    roughness = cv2.imread(roughness_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+                    roughness = cv2.imread(roughness_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)[...,0]
                     if roughness.dtype == 'uint8':
                         bit_depth = 255.0
                     if roughness.dtype == 'uint16':
@@ -112,7 +113,7 @@ class dataloader():
                     roughness = np.float32(roughness)/bit_depth
                 # if ground truth metallic map is avelable, generate metallic-based mask
                 if os.path.isfile(metallic_path):
-                    metallic = cv2.imread(metallic_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
+                    metallic = cv2.imread(metallic_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)[...,0]
                     if metallic.dtype == 'uint8':
                         bit_depth = 255.0
                     if metallic.dtype == 'uint16':
@@ -185,7 +186,7 @@ class dataloader():
 
             if flag:
                 img  = img[r_s:r_e, c_s:c_e, :] 
-                light = light[r_s:r_e, c_s:c_e, :]
+                # light = light[r_s:r_e, c_s:c_e, :]
                 
                 if i == 0:
                     N = N[r_s:r_e, c_s:c_e, :]  
@@ -201,7 +202,7 @@ class dataloader():
                 
             w = h
             img = cv2.resize(img, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
-            light = cv2.resize(light, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
+            # light = cv2.resize(light, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
             N = cv2.resize(N, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
             mask = np.float32(cv2.resize(mask, dsize=(h, w),interpolation=cv2.INTER_CUBIC)> 0.5) 
             
@@ -211,15 +212,15 @@ class dataloader():
                 bit_depth = 65535.0
 
             img = np.float32(img) / bit_depth
-            light = np.float32(light) / bit_depth
+            # light = np.float32(light) / bit_depth
             if i == 0:
                 I = np.zeros((len(indexset), h, w, 3), np.float32) # [N, h, w, c]
-                L = np.zeros((len(indexset), h, w, 3), np.float32) # [N, h, w, c]
+                L = np.zeros((len(indexset), 1, 1, 3), np.float32) # [N, h, w, c]
             I[i, :, :, :] = img
             L[i, :, :, :] = light
         # self.img_tile(I, 3, 3, self.data_workspace)
         I = np.reshape(I, (-1, h * w, 3))
-        L = np.reshape(L, (-1, h * w, 3))
+        L = np.reshape(L, (-1, 1, 3))
 
         """Data Normalization"""
         temp = np.mean(I[:, mask.flatten()==1,:], axis=2)
@@ -235,7 +236,7 @@ class dataloader():
         I = I.reshape(h, w, 3, numberOfImages)
 
         L = np.transpose(L, (1, 2, 0))
-        L = L.reshape(h, w, 3, numberOfImages)
+        L = L.reshape(1, 1, 3, numberOfImages)
         mask = (mask.reshape(h, w, 1)).astype(np.float32) # 1, h, w
 
         h = h0

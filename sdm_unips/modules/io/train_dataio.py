@@ -16,7 +16,7 @@ class dataio(data.Dataset):
         extension = args.train_ext
         self.numberOfImageBuffer = args.max_image_num
         self.train_image_prefix= args.train_image_prefix
-        self.train_light_prefix= args.train_light_prefix
+        self.train_light_suffix= args.train_light_suffix
         self.mask_margin = args.mask_margin
         self.outdir = args.session_name
         self.data_root = data_root
@@ -40,7 +40,7 @@ class dataio(data.Dataset):
 
         objid = index_
         objdir = self.objlist[objid]
-        self.data.load(objdir, image_prefix = self.train_image_prefix, light_prefix = self.train_light_prefix, max_image_resolution = self.max_image_resolution)
+        self.data.load(objdir, image_prefix = self.train_image_prefix, light_suffix = self.train_light_suffix, max_image_resolution = self.max_image_resolution)
         img = self.data.I.transpose(2,0,1,3) # c, h, w, N
         numberOfImages = self.data.I.shape[3]           
         nml = self.data.N.transpose(2,0,1) # 3, h, w
