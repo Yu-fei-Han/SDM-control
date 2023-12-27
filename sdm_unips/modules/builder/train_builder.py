@@ -34,13 +34,13 @@ class builder():
             model_dir = f'{args.checkpoint}/brdf'
             self.net_brdf = model_control.Net(args.pixel_samples, 'brdf', device).to(self.device)
             self.net_brdf = self.load_models(self.net_brdf, model_dir)
-            if not args.fine_tune:
-                print("Fine-tuning the network...")
-                model_dir = f'{args.checkpoint}/fine_tune'
-                self.net_brdf = self.load_models(self.net_brdf, model_dir)
-            else:
-                self.net_brdf.no_grad()
-            self.net_brdf = torch.nn.DataParallel(self.net_brdf)
+            # if not args.fine_tune:
+            #     print("Fine-tuning the network...")
+            #     model_dir = f'{args.checkpoint}/fine_tune'
+            #     self.net_brdf = self.load_models(self.net_brdf, model_dir)
+            # else:
+            #     self.net_brdf.no_grad_fn()
+            # self.net_brdf = torch.nn.DataParallel(self.net_brdf)
         print('')
         print(f"canonical resolution: {self.args.canonical_resolution} x {self.args.canonical_resolution}  ")
         print(f"pixel samples: {self.args.pixel_samples}\n") 

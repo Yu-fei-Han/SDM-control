@@ -94,13 +94,17 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
         # self.backbone_control = ImageFeatureExtractor(input_nc-1)
         self.fusion = ImageFeatureFusion(self.backbone.out_channels, use_efficient_attention=use_efficient_attention)
         # self.fusion_control = ImageFeatureFusion(self.backbone_control.out_channels, use_efficient_attention=use_efficient_attention)
-        self.CAB = transformer.CAB(dim_in = 256, dim_out = 256, num_heads=8, ln=True, attention_dropout=0.1,dim_feedforward=256)
-        self.SAB = transformer.SAB(dim_in = 256, dim_out = 256, num_heads=4, ln=True, attention_dropout=0.1,dim_feedforward=256)
-        self.conv = nn.Conv2d(3, 256, kernel_size=3, stride=1, padding=1)
+        self.CAB = transformer.CAB(dim_in = 64, dim_out = 64, num_heads=8, ln=True, attention_dropout=0.1,dim_feedforward=256)
+        self.SAB = transformer.SAB(dim_in = 64, dim_out = 64, num_heads=4, ln=True, attention_dropout=0.1,dim_feedforward=256)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(256, 64, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(64, 256, kernel_size=3, stride=1, padding=1)
         self.feat_dim = 256
         self.zero_init()
     def zero_init(self):
-        zero_module(self.conv)
+        zero_module(self.conv1)
+        zero_module(self.conv2)
+        zero_module(self.conv3)
         zero_module(self.SAB)
         zero_module(self.CAB)
         # zero_module(self.backbone_control)
@@ -119,7 +123,7 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
   
         """ (1c) resizing L """
         L = L.reshape(N, 1, 3).permute(2,1,0)
-        L = self.conv(L).permute(1,2,0) # 1 10 256
+        L = self.conv1(L).permute(1,2,0) # 1 10 256
 
         """(2a) feature extraction """
         x_resized = self.backbone(x_resized) # x_resized 10 4 256 256
@@ -135,18 +139,25 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
        
         """ (2c) feature extraction """
         L = self.SAB(L) # 1, 10, 256
-        L = L.repeat(canonical_resolution//32 * canonical_resolution//32, 1, 1) # 4096, 10, 256
+        L = L.repeat(canonical_resolution//8 * canonical_resolution//8, 1, 1) # 4096, 10, 256
 
         """ (3) upsample """
         glc_resized = F.interpolate(f_resized.reshape(N, self.feat_dim, canonical_resolution//4, canonical_resolution//4) , size= (H//4, W//4), mode='bilinear', align_corners=True)
         del f_resized # 10,256,128,128
 
         glc = glc_resized + glc_grid
-        glc_down = F.interpolate(glc, size= (canonical_resolution//32, canonical_resolution//32), mode='bilinear', align_corners=True)
+
+        glc_down = F.interpolate(glc, size= (canonical_resolution//8, canonical_resolution//8), mode='bilinear', align_corners=True)
+        glc_down = self.conv2(glc_down) # (N, 64, 32, 32)
+        glc_down = glc_down.reshape(N,64,-1).permute(2,0,1)
+
         """ (4) cross attention """
-        glc_attention = glc_down.reshape(N, self.feat_dim, -1).permute(2, 0, 1) # (Hc*Wc, N, C)
+        glc_attention = glc_down# (Hc*Wc, N, C)
         glc_attention = self.CAB(glc_attention, L) # (Hc*Wc, N, C)
-        glc_attention = glc_attention.permute(1, 2, 0).reshape(N, self.feat_dim, canonical_resolution//32, canonical_resolution//32)
+        glc_attention = self.conv3(glc_attention.permute(1,2,0).reshape(N,64,32,32)) # (Hc*Wc, N, 256)
+
+        # glc_attention = glc_attention.permute(1, 2, 0).reshape(N, self.feat_dim, canonical_resolution//8, canonical_resolution//8)
+
         glc_attention = F.interpolate(glc_attention, size= (H//4, W//4), mode='bilinear', align_corners=True)
         glc = glc + glc_attention
 
@@ -238,7 +249,7 @@ class Net(nn.Module):
 
         self.regressor = Regressor(384, num_enc_sab=1, use_efficient_attention=True, dim_feedforward=1024, output=self.target).to(self.device) 
 
-    def no_grad(self):
+    def no_grad_fn(self):
         mode_change(self.image_encoder.backbone, False)
         mode_change(self.image_encoder.fusion, False)
         mode_change(self.glc_upsample, False)
