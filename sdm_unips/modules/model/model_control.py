@@ -95,7 +95,7 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
         self.fusion = ImageFeatureFusion(self.backbone.out_channels, use_efficient_attention=use_efficient_attention)
         # self.fusion_control = ImageFeatureFusion(self.backbone_control.out_channels, use_efficient_attention=use_efficient_attention)
         self.CAB = transformer.CAB(dim_in = 256, dim_out = 256, num_heads=8, ln=True, attention_dropout=0.1,dim_feedforward=256)
-        self.SAB = transformer.SAB(dim_in = 256, dim_out = 256, num_heads=8, ln=True, attention_dropout=0.1,dim_feedforward=256)
+        self.SAB = transformer.SAB(dim_in = 256, dim_out = 256, num_heads=4, ln=True, attention_dropout=0.1,dim_feedforward=256)
         self.conv = nn.Conv2d(3, 256, kernel_size=3, stride=1, padding=1)
         self.feat_dim = 256
         self.zero_init()
@@ -119,7 +119,7 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
   
         """ (1c) resizing L """
         L = L.reshape(N, 1, 3).permute(2,1,0)
-        L = self.conv(L).permute(2,1,0) # 10 1 256
+        L = self.conv(L).permute(1,2,0) # 1 10 256
 
         """(2a) feature extraction """
         x_resized = self.backbone(x_resized) # x_resized 10 4 256 256
@@ -134,19 +134,19 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
         del x_grid
        
         """ (2c) feature extraction """
-        L = self.SAB(L) # 10, 1, 256
-        
+        L = self.SAB(L) # 1, 10, 256
+        L = L.repeat(canonical_resolution//32 * canonical_resolution//32, 1, 1) # 4096, 10, 256
 
         """ (3) upsample """
         glc_resized = F.interpolate(f_resized.reshape(N, self.feat_dim, canonical_resolution//4, canonical_resolution//4) , size= (H//4, W//4), mode='bilinear', align_corners=True)
         del f_resized # 10,256,128,128
 
         glc = glc_resized + glc_grid
-        glc_down = F.interpolate(glc, size= (canonical_resolution//4, canonical_resolution//4), mode='bilinear', align_corners=True)
+        glc_down = F.interpolate(glc, size= (canonical_resolution//32, canonical_resolution//32), mode='bilinear', align_corners=True)
         """ (4) cross attention """
-        glc_attention = glc_down.reshape(N, self.feat_dim, -1).permute(0, 2, 1) # (N, Hc*Wc, C)
-        glc_attention = self.CAB(glc_attention, L) # (N, Hc*Wc, C)
-        glc_attention = glc_attention.permute(0, 2, 1).reshape(N, self.feat_dim, canonical_resolution//4, canonical_resolution//4)
+        glc_attention = glc_down.reshape(N, self.feat_dim, -1).permute(2, 0, 1) # (Hc*Wc, N, C)
+        glc_attention = self.CAB(glc_attention, L) # (Hc*Wc, N, C)
+        glc_attention = glc_attention.permute(1, 2, 0).reshape(N, self.feat_dim, canonical_resolution//32, canonical_resolution//32)
         glc_attention = F.interpolate(glc_attention, size= (H//4, W//4), mode='bilinear', align_corners=True)
         glc = glc + glc_attention
 
