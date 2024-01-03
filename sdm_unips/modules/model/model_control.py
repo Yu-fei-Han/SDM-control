@@ -29,6 +29,21 @@ def zero_module(module):
         p.zero_()
         p.requires_grad = True
 
+class ImageHintEncoder(nn.Module):
+    def __init__(self, in_channel, out_dim):
+        super(ImageHintEncoder, self).__init__()
+        self.encoder = nn.Sequential(
+            *[nn.Linear(in_channel, 16),
+            nn.Sigmoid(),
+            nn.Linear(16, out_dim),
+            nn.Sigmoid(),
+            ])
+
+    def forward(self, x):
+        x = self.encoder(x)
+        return x
+
+
 class ImageFeatureExtractor(nn.Module):
     def __init__(self, input_nc):
         super(ImageFeatureExtractor, self).__init__()
@@ -94,22 +109,38 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
         # self.backbone_control = ImageFeatureExtractor(input_nc-1)
         self.fusion = ImageFeatureFusion(self.backbone.out_channels, use_efficient_attention=use_efficient_attention)
         # self.fusion_control = ImageFeatureFusion(self.backbone_control.out_channels, use_efficient_attention=use_efficient_attention)
-        self.CAB = transformer.CAB(dim_in = 64, dim_out = 64, num_heads=8, ln=True, attention_dropout=0.1,dim_feedforward=256)
-        self.SAB = transformer.SAB(dim_in = 64, dim_out = 64, num_heads=4, ln=True, attention_dropout=0.1,dim_feedforward=256)
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(256, 64, kernel_size=3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(64, 256, kernel_size=3, stride=1, padding=1)
+        self.CAB = transformer.CAB(dim_in = 64, dim_out = 64, num_heads=1, ln=True, attention_dropout=0.1,dim_feedforward=256)
+        # self.SAB = transformer.SAB(dim_in = 4, dim_out = 4, num_heads=1, ln=True, attention_dropout=0.1,dim_feedforward=256)
+        self.linear1 = ImageHintEncoder(3, 64)
+        self.linear2 = ImageHintEncoder(256, 64)
+        self.linear3 = ImageHintEncoder(64, 256)
         self.feat_dim = 256
         self.zero_init()
+        # self.init_weights(self.linear1)
+        # self.init_weights(self.linear2)
+        # self.init_weights(self.linear3)
+        # self.init_weights(self.CAB)
     def zero_init(self):
-        zero_module(self.conv1)
-        zero_module(self.conv2)
-        zero_module(self.conv3)
-        zero_module(self.SAB)
+        zero_module(self.linear1)
+        zero_module(self.linear2)
+        zero_module(self.linear3)
+        # zero_module(self.SAB)
         zero_module(self.CAB)
         # zero_module(self.backbone_control)
         # zero_module(self.fusion_control)  
+
+    def init_weights(self,m):
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
+            nn.init.kaiming_normal_(m.weight.data, nonlinearity='relu')
+            if m.bias is not None:
+                m.bias.data.zero_()
+        elif isinstance(m, nn.LayerNorm):
+            m.weight.data.fill_(1)
+            m.bias.data.zero_()
+
+    
     def forward(self, x, L, nImgArray, canonical_resolution): # L 10 3 1 1
+        print("can",canonical_resolution)
         N, C, H, W = x.shape        
         mosaic_scale = H // canonical_resolution
         K = mosaic_scale * mosaic_scale
@@ -122,8 +153,8 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
         x_grid = x_grid.permute(1,0,2,3,4).reshape(-1, C, canonical_resolution, canonical_resolution) # (K*B, C, canonical_resolutioin, canonical_resolution)
   
         """ (1c) resizing L """
-        L = L.reshape(N, 1, 3).permute(2,1,0)
-        L = self.conv1(L).permute(1,2,0) # 1 10 256
+        L = L.reshape(N, 1, 3)
+        L = self.linear1(L).permute(1,0,2) # 1 10 256
 
         """(2a) feature extraction """
         x_resized = self.backbone(x_resized) # x_resized 10 4 256 256
@@ -138,7 +169,7 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
         del x_grid
        
         """ (2c) feature extraction """
-        L = self.SAB(L) # 1, 10, 256
+        # L = self.SAB(L) # 1, 10, 256
         L = L.repeat(canonical_resolution//8 * canonical_resolution//8, 1, 1) # 4096, 10, 256
 
         """ (3) upsample """
@@ -148,19 +179,19 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
         glc = glc_resized + glc_grid
 
         glc_down = F.interpolate(glc, size= (canonical_resolution//8, canonical_resolution//8), mode='bilinear', align_corners=True)
-        glc_down = self.conv2(glc_down) # (N, 64, 32, 32)
-        glc_down = glc_down.reshape(N,64,-1).permute(2,0,1)
+        print(glc_down.shape)
+        glc_down = self.linear2(glc_down.reshape(N,256,-1).permute(2,0,1)) # (N, 64, 32, 32)
+        # glc_down = glc_down.reshape(N,4,-1).permute(2,0,1)
 
         """ (4) cross attention """
         glc_attention = glc_down# (Hc*Wc, N, C)
         glc_attention = self.CAB(glc_attention, L) # (Hc*Wc, N, C)
-        glc_attention = self.conv3(glc_attention.permute(1,2,0).reshape(N,64,32,32)) # (Hc*Wc, N, 256)
+        print(glc_attention.shape)
+        glc_attention = self.linear3(glc_attention).permute(1,2,0).resize(N,256,canonical_resolution//8,canonical_resolution//8) # (Hc*Wc, N, 256)
 
-        # glc_attention = glc_attention.permute(1, 2, 0).reshape(N, self.feat_dim, canonical_resolution//8, canonical_resolution//8)
 
         glc_attention = F.interpolate(glc_attention, size= (H//4, W//4), mode='bilinear', align_corners=True)
         glc = glc + glc_attention
-
         return glc
 
  
@@ -250,18 +281,21 @@ class Net(nn.Module):
         self.regressor = Regressor(384, num_enc_sab=1, use_efficient_attention=True, dim_feedforward=1024, output=self.target).to(self.device) 
 
     def no_grad_fn(self):
+        mode_change(self.image_encoder, True)
         mode_change(self.image_encoder.backbone, False)
         mode_change(self.image_encoder.fusion, False)
         mode_change(self.glc_upsample, False)
         mode_change(self.glc_aggregation, False)
-        mode_change(self.regressor, False)
+        mode_change(self.regressor.comm, False)
     
+    def show_grad_fn(self):
+        for para in self.regressor.parameters():
+            print(para.reqiures_grad)
 
     def forward(self, I, M, L, nImgArray, decoder_resolution, canonical_resolution):     
         
-        decoder_resolution = decoder_resolution[0,0].cpu().numpy().astype(np.int32)
-        canonical_resolution = canonical_resolution[0,0].cpu().numpy().astype(np.int32)
-
+        decoder_resolution = int(decoder_resolution[0,0])
+        canonical_resolution = int(canonical_resolution[0,0])
         """init"""
         B, C, H, W, Nmax = I.shape
 
@@ -277,7 +311,7 @@ class Net(nn.Module):
 
         data = torch.cat([I_enc * M_enc, M_enc], dim=1)     
         data = data[img_index==1,:,:,:] # torch.size([N, 4, H, W])d
-
+        print(data.type())
         glc = self.image_encoder(data, L_enc, nImgArray, canonical_resolution) # torch.Size([N, 256, H/4, W/4]) [img, mask]
 
         """ Sample Decoder at Original Resokution"""
@@ -335,20 +369,18 @@ class Net(nn.Module):
                 x_n, x_brdf = self.regressor(x, len(ids)) # [len(ids), 3]       
                 X_n = F.normalize(x_n, dim=1, p=2)
                 if self.target == 'normal':
-                    nout[b, ids, :] = X_n.detach()  
+                    nout[b, ids, :] = X_n
                 if self.target == 'brdf':
-                    nout[b, ids, :] = X_n.detach() 
-                    bout[b, ids, :] = torch.relu(x_brdf[0]).detach()  
-                    rout[b, ids, :] = torch.relu(x_brdf[1]).detach()  
-                    mout[b, ids, :] = torch.relu(x_brdf[2]).detach()  
+                    nout[b, ids, :] = X_n
+                    bout[b, ids, :] = torch.relu(x_brdf[0])
+                    rout[b, ids, :] = torch.relu(x_brdf[1])
+                    mout[b, ids, :] = torch.relu(x_brdf[2]) 
 
         nout = nout.permute(0, 2, 1).reshape(B, 3, H, W)
         bout = bout.permute(0, 2, 1).reshape(B, 3, H, W)
         rout = rout.permute(0, 2, 1).reshape(B, 1, H, W)
         mout = mout.permute(0, 2, 1).reshape(B, 1, H, W)
 
-
-  
         return nout, bout, rout, mout
 
 

@@ -8,7 +8,7 @@ import glob
 import torch.utils.data as data
 from .dataloader import realdata_train
 import numpy as np
-
+import datetime
 class dataio(data.Dataset):
     def __init__(self, mode, args):
         self.mode = mode
@@ -35,12 +35,12 @@ class dataio(data.Dataset):
         self.objlist = objlist
         print(f"Found {len(self.objlist)} objects!\n")
         self.data = realdata_train.dataloader(self.numberOfImageBuffer, mask_margin=self.mask_margin, outdir=self.outdir)
-
+        self.nowTime = args.nowtime
     def __getitem__(self, index_):
 
         objid = index_
         objdir = self.objlist[objid]
-        self.data.load(objdir, image_prefix = self.train_image_prefix, light_suffix = self.train_light_suffix, max_image_resolution = self.max_image_resolution)
+        self.data.load(objdir, self.nowTime, image_prefix = self.train_image_prefix, light_suffix = self.train_light_suffix, max_image_resolution = self.max_image_resolution)
         img = self.data.I.transpose(2,0,1,3) # c, h, w, N
         numberOfImages = self.data.I.shape[3]           
         nml = self.data.N.transpose(2,0,1) # 3, h, w

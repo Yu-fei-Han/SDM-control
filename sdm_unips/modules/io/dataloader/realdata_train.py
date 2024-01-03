@@ -3,7 +3,7 @@ Scalable, Detailed and Mask-free Universal Photometric Stereo Network (CVPR2023)
 # Copyright (c) 2023 Satoshi Ikehata
 # All rights reserved.
 """
-
+import datetime
 import glob
 import os
 import numpy as np
@@ -29,10 +29,9 @@ class dataloader():
             os.makedirs(outdir, exist_ok=True)
             cv2.imwrite(f'{outdir}/tiled.png', (255 * img_tiled[:,:,::-1]).astype(np.uint8))
     
-    def load(self, objdir, image_prefix, light_suffix, margin = 0, max_image_resolution = 2048, aug=[]):
-
+    def load(self, objdir, nowTime, image_prefix, light_suffix, margin = 0, max_image_resolution = 2048, aug=[]):
         self.objname = re.split(r'\\|/',objdir)[-1]
-        self.data_workspace = f'{self.outdir}/results/{self.objname}'
+        self.data_workspace = f'{self.outdir}/results/{nowTime}/{self.objname}'
         os.makedirs(self.data_workspace, exist_ok=True)
 
         print(f'Testing on {self.objname}')
@@ -65,7 +64,7 @@ class dataloader():
             img_path = directlist[indexofimage]
             mask_path = img_dir + '/mask.png'
             img = cv2.cvtColor(cv2.imread(img_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB)
-
+            # img = cv2.resize(img, dsize=(128, 128),interpolation=cv2.INTER_CUBIC)
             light_path = light_list[indexofimage]
             # light = cv2.cvtColor(cv2.imread(light_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB)
             # light = cv2.resize(light, dsize=(img.shape[1], img.shape[0]),interpolation=cv2.INTER_CUBIC)
@@ -77,7 +76,7 @@ class dataloader():
                 margin = self.mask_margin
                 
                 nml_path= img_dir + '/normal.tif'
-                BC_path = img_dir + '/basecolor.tif'
+                BC_path = img_dir + '/baseColor.tif'
                 roughness_path = img_dir + '/roughness.tif'
                 metallic_path = img_dir + '/metal.tif'
 
@@ -192,20 +191,23 @@ class dataloader():
                     N = N[r_s:r_e, c_s:c_e, :]  
 
 
-            h = int(np.floor(np.max([img.shape[0], img.shape[1]]) / 512) * 512)
-            if h > max_image_resolution:
-                h = max_image_resolution
-            if h < 512:
-                h = 512
+            # h = int(np.floor(np.max([img.shape[0], img.shape[1]]) / 512) * 512)
+            # if h > max_image_resolution:
+            h = max_image_resolution
+            # if h < 512:
+            #     h = 512
             if i == 0:
                 print(f"original crop size: {img.shape[0]} x {img.shape[1]}\nresized crop size: {h} x {h}")
                 
             w = h
-            img = cv2.resize(img, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
+            # img = cv2.resize(img, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
             # light = cv2.resize(light, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
-            N = cv2.resize(N, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
-            mask = np.float32(cv2.resize(mask, dsize=(h, w),interpolation=cv2.INTER_CUBIC)> 0.5) 
-            
+            # N = cv2.resize(N, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
+            # n_true = cv2.resize(n_true, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
+            # mask = np.float32(cv2.resize(mask, dsize=(h, w),interpolation=cv2.INTER_CUBIC)> 0.5) 
+            # roughness = cv2.resize(roughness, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
+            # BC = cv2.resize(BC, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
+            # metallic = cv2.resize(metallic, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
             if img.dtype == 'uint8':
                 bit_depth = 255.0
             if img.dtype == 'uint16':

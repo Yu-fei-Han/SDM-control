@@ -5,7 +5,7 @@ from modules.builder import train_builder
 from modules.io import train_dataio
 import sys
 import argparse
-import time
+import datetime
 
 sys.path.append('..')  # add parent directly for importing
 
@@ -27,19 +27,22 @@ parser.add_argument('--train_light_suffix', default='*dir.txt')
 parser.add_argument('--mask_margin', type=int, default=8)
 
 # Network Configuration
-parser.add_argument('--canonical_resolution', type=int, default=256)
-parser.add_argument('--pixel_samples', type=int, default=10000)
+parser.add_argument('--canonical_resolution', type=int, default=128)
+parser.add_argument('--pixel_samples', type=int, default=1000)
 parser.add_argument('--scalable', default='False', action='store_true')
 
 # Training Configuration
-parser.add_argument('--train_epoch', type=int, default=1000)
+parser.add_argument('--train_epoch', type=int, default=100000)
+parser.add_argument('--save_model_epoch', type=int, default=10000)
+parser.add_argument('--test_interval', type=int, default=1000)
 parser.add_argument('--fine_tune', default='True', action='store_true')
+
 def main():
     args = parser.parse_args()
     print(f'\nStarting a session: {args.session_name}')
     print(f'target: {args.target}\n')
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
+    args.nowtime = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M')
+    device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
     sdf_unips = train_builder.builder(args, device)
     train_data = train_dataio.dataio('Test', args)
@@ -48,8 +51,6 @@ def main():
                   max_image_resolution=args.max_image_res,
                   canonical_resolution=args.canonical_resolution,
                   )
-
-
 
 if __name__ == '__main__':
     main()
