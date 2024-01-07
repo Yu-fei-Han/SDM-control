@@ -1,6 +1,6 @@
 sdm_unips/sdm_unips/logs
 sdm_unips/sdm_unips/results
-sdm_unips/DefaultTest
+sdm_unips/DefaultTrain
 sdm_unips/checkpoint/
 **/*.pyc
 *.pyc

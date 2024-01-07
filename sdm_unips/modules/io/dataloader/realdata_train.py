@@ -62,9 +62,9 @@ class dataloader():
 
         for i, indexofimage in enumerate(indexset):
             img_path = directlist[indexofimage]
-            mask_path = img_dir + '/mask.png'
+            mask_path = img_dir + '/mask.tif'
             img = cv2.cvtColor(cv2.imread(img_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB)
-            # img = cv2.resize(img, dsize=(128, 128),interpolation=cv2.INTER_CUBIC)
+            img = cv2.resize(img, dsize=(max_image_resolution, max_image_resolution),interpolation=cv2.INTER_CUBIC)
             light_path = light_list[indexofimage]
             # light = cv2.cvtColor(cv2.imread(light_path, flags = cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH), cv2.COLOR_BGR2RGB)
             # light = cv2.resize(light, dsize=(img.shape[1], img.shape[0]),interpolation=cv2.INTER_CUBIC)
@@ -142,46 +142,57 @@ class dataloader():
                     else:
                         flag = True
 
-                    if row > col and flag:
-                        r_s = rowmin-margin
-                        r_e = rowmax+margin
-                        c_s = np.max([colmin- int(0.5 * (row-col))-margin,0])
-                        c_e = np.min([colmax+int(0.5 * (row-col))+margin,img.shape[1]])
-                    elif col >= row and flag:
-                        r_s = np.max([rowmin-int(0.5*(col-row))-margin,0])
-                        r_e = np.min([rowmax+int(0.5*(col-row))+margin, img.shape[0]])
-                        c_s = colmin-margin
-                        c_e = colmax+margin  
-                    if flag == True:
-                        mask = mask[r_s:r_e,c_s:c_e]                        
-                    else:
-                        r_s = 0
-                        r_e = h0
-                        c_s = 0
-                        c_e = w0
+                #     if row > col and flag:
+                #         r_s = rowmin-margin
+                #         r_e = rowmax+margin
+                #         c_s = np.max([colmin- int(0.5 * (row-col))-margin,0])
+                #         c_e = np.min([colmax+int(0.5 * (row-col))+margin,img.shape[1]])
+                #     elif col >= row and flag:
+                #         r_s = np.max([rowmin-int(0.5*(col-row))-margin,0])
+                #         r_e = np.min([rowmax+int(0.5*(col-row))+margin, img.shape[0]])
+                #         c_s = colmin-margin
+                #         c_e = colmax+margin  
+                #     if flag == True:
+                #         mask = mask[r_s:r_e,c_s:c_e]                        
+                #     else:
+                #         r_s = 0
+                #         r_e = h0
+                #         c_s = 0
+                #         c_e = w0
                 else:
                     mask = np.ones((h0, w0), np.float32)
-                    rows, cols = np.nonzero(mask)
-                    rowmin = np.min(rows)
-                    rowmax = np.max(rows)
-                    row = rowmax - rowmin
-                    colmin = np.min(cols)
-                    colmax = np.max(cols)
-                    col = colmax - colmin
-                    margin = 0
+                #     rows, cols = np.nonzero(mask)
+                #     rowmin = np.min(rows)
+                #     rowmax = np.max(rows)
+                #     row = rowmax - rowmin
+                #     colmin = np.min(cols)
+                #     colmax = np.max(cols)
+                #     col = colmax - colmin
+                #     margin = 0
 
-                    flag = True 
-                    if row <= col and flag:
-                        r_s = rowmin-margin
-                        r_e = rowmax+margin
-                        c_s = int(0.5 * col) - int(0.5 * row)
-                        c_e = int(0.5 * col) + int(0.5 * row)
-                    elif row > col and flag:
-                        r_s = int(0.5 * row) - int(0.5 * col)
-                        r_e = int(0.5 * row) + int(0.5 * col)
-                        c_s = colmin-margin
-                        c_e = colmax+margin                    
-                    mask = mask[r_s:r_e,c_s:c_e]            
+                #     flag = True 
+                #     if row <= col and flag:
+                #         r_s = rowmin-margin
+                #         r_e = rowmax+margin
+                #         c_s = int(0.5 * col) - int(0.5 * row)
+                #         c_e = int(0.5 * col) + int(0.5 * row)
+                #     elif row > col and flag:
+                #         r_s = int(0.5 * row) - int(0.5 * col)
+                #         r_e = int(0.5 * row) + int(0.5 * col)
+                #         c_s = colmin-margin
+                #         c_e = colmax+margin                    
+                #     mask = mask[r_s:r_e,c_s:c_e]       
+            N = cv2.resize(N, dsize=(h0, w0),interpolation=cv2.INTER_CUBIC)
+            n_true = cv2.resize(n_true, dsize=(h0, w0),interpolation=cv2.INTER_CUBIC)
+            mask = np.float32(cv2.resize(mask, dsize=(h0, w0),interpolation=cv2.INTER_CUBIC)> 0.5) 
+            roughness = cv2.resize(roughness, dsize=(h0, w0),interpolation=cv2.INTER_CUBIC)
+            BC = cv2.resize(BC, dsize=(h0, w0),interpolation=cv2.INTER_CUBIC)
+            metallic = cv2.resize(metallic, dsize=(h0, w0),interpolation=cv2.INTER_CUBIC)     
+            r_s = 0
+            r_e = h0
+            c_s = 0
+            c_e = w0
+            mask = mask[r_s:r_e,c_s:c_e]            
 
             if flag:
                 img  = img[r_s:r_e, c_s:c_e, :] 
@@ -200,14 +211,8 @@ class dataloader():
                 print(f"original crop size: {img.shape[0]} x {img.shape[1]}\nresized crop size: {h} x {h}")
                 
             w = h
-            # img = cv2.resize(img, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
-            # light = cv2.resize(light, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
-            # N = cv2.resize(N, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
-            # n_true = cv2.resize(n_true, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
-            # mask = np.float32(cv2.resize(mask, dsize=(h, w),interpolation=cv2.INTER_CUBIC)> 0.5) 
-            # roughness = cv2.resize(roughness, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
-            # BC = cv2.resize(BC, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
-            # metallic = cv2.resize(metallic, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
+            img = cv2.resize(img, dsize=(h, w),interpolation=cv2.INTER_CUBIC)
+            
             if img.dtype == 'uint8':
                 bit_depth = 255.0
             if img.dtype == 'uint16':

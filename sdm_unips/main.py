@@ -23,15 +23,15 @@ parser.add_argument('--target', default='normal_and_brdf', choices=['normal', 'b
 parser.add_argument('--checkpoint', default='checkpoint')
 
 # Data Configuration
-parser.add_argument('--max_image_res', type=int, default=512)
+parser.add_argument('--max_image_res', type=int, default=128)
 parser.add_argument('--max_image_num', type=int, default=10)
 parser.add_argument('--test_ext', default='.data')
-parser.add_argument('--test_dir', default='DefaultTest')
-parser.add_argument('--test_prefix', default='L*')
+parser.add_argument('--test_dir', default='DefaultTrain/PSWildTest')
+parser.add_argument('--test_prefix', default='Directi*')
 parser.add_argument('--mask_margin', type=int, default=8)
 
 # Network Configuration
-parser.add_argument('--canonical_resolution', type=int, default=256)
+parser.add_argument('--canonical_resolution', type=int, default=64)
 parser.add_argument('--pixel_samples', type=int, default=10000)
 parser.add_argument('--scalable', action='store_true')
 

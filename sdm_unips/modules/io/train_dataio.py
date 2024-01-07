@@ -6,7 +6,7 @@ Scalable, Detailed and Mask-free Universal Photometric Stereo Network (CVPR2023)
 
 import glob
 import torch.utils.data as data
-from .dataloader import realdata_train
+from .dataloader import realdata_train_2 as realdata
 import numpy as np
 import datetime
 class dataio(data.Dataset):
@@ -34,7 +34,7 @@ class dataio(data.Dataset):
         objlist = sorted(objlist)
         self.objlist = objlist
         print(f"Found {len(self.objlist)} objects!\n")
-        self.data = realdata_train.dataloader(self.numberOfImageBuffer, mask_margin=self.mask_margin, outdir=self.outdir)
+        self.data = realdata.dataloader(self.numberOfImageBuffer, mask_margin=self.mask_margin, outdir=self.outdir)
         self.nowTime = args.nowtime
     def __getitem__(self, index_):
 
@@ -49,9 +49,9 @@ class dataio(data.Dataset):
         light = self.data.L.transpose(2,0,1,3) # c, h, w, N
         albedo = self.data.a.transpose(2,0,1) # c, h, w
         roughness = self.data.r.transpose(2,0,1)
-        mettalic = self.data.m.transpose(2,0,1)
+        metallic = self.data.m.transpose(2,0,1)
 
-        return img, nml, mask, numberOfImages, roi, light, albedo, roughness, mettalic
+        return img, nml, mask, numberOfImages, roi, light, albedo, roughness, metallic
 
     def __len__(self):
         return len(self.objlist)

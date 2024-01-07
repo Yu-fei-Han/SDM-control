@@ -33,10 +33,9 @@ class ImageHintEncoder(nn.Module):
     def __init__(self, in_channel, out_dim):
         super(ImageHintEncoder, self).__init__()
         self.encoder = nn.Sequential(
-            *[nn.Linear(in_channel, 16),
-            nn.Sigmoid(),
-            nn.Linear(16, out_dim),
-            nn.Sigmoid(),
+            *[nn.Linear(in_channel, 32),
+            nn.ReLU(),
+            nn.Linear(32, out_dim),
             ])
 
     def forward(self, x):
@@ -179,14 +178,12 @@ class ScaleInvariantSpatialLightImageEncoder(nn.Module): # image feature encoder
         glc = glc_resized + glc_grid
 
         glc_down = F.interpolate(glc, size= (canonical_resolution//8, canonical_resolution//8), mode='bilinear', align_corners=True)
-        print(glc_down.shape)
         glc_down = self.linear2(glc_down.reshape(N,256,-1).permute(2,0,1)) # (N, 64, 32, 32)
         # glc_down = glc_down.reshape(N,4,-1).permute(2,0,1)
 
         """ (4) cross attention """
         glc_attention = glc_down# (Hc*Wc, N, C)
         glc_attention = self.CAB(glc_attention, L) # (Hc*Wc, N, C)
-        print(glc_attention.shape)
         glc_attention = self.linear3(glc_attention).permute(1,2,0).resize(N,256,canonical_resolution//8,canonical_resolution//8) # (Hc*Wc, N, 256)
 
 
@@ -280,7 +277,7 @@ class Net(nn.Module):
 
         self.regressor = Regressor(384, num_enc_sab=1, use_efficient_attention=True, dim_feedforward=1024, output=self.target).to(self.device) 
 
-    def no_grad_fn(self):
+    def no_grad(self):
         mode_change(self.image_encoder, True)
         mode_change(self.image_encoder.backbone, False)
         mode_change(self.image_encoder.fusion, False)
@@ -311,7 +308,6 @@ class Net(nn.Module):
 
         data = torch.cat([I_enc * M_enc, M_enc], dim=1)     
         data = data[img_index==1,:,:,:] # torch.size([N, 4, H, W])d
-        print(data.type())
         glc = self.image_encoder(data, L_enc, nImgArray, canonical_resolution) # torch.Size([N, 256, H/4, W/4]) [img, mask]
 
         """ Sample Decoder at Original Resokution"""
